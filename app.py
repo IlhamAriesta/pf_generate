@@ -38,32 +38,36 @@ elif menu == "PF Generator Massal":
     seam_options = sorted(df[(df["PIT"] == pit) & (df["LOKASI"] == lokasi)]["SEAM"].unique())
     seam = st.selectbox("Pilih SEAM", seam_options)
 
+    # Tombol untuk menambahkan lokasi
     if st.button("➕ Tambahkan Lokasi"):
         row_db = df[(df["PIT"] == pit) & (df["LOKASI"] == lokasi) & (df["SEAM"] == seam)]
         if not row_db.empty:
             spasi = float(row_db["SPASI"].iloc[0])
             burden = float(row_db["BURDEN"].iloc[0])
             pf = float(row_db["PF"].iloc[0])
+            # Simpan PIT, LOKASI, SEAM, SPASI, BURDEN, PF
             st.session_state.massal_list.append([pit, lokasi, seam, spasi, burden, pf])
             st.success(f"✅ Lokasi {lokasi} - {seam} ditambahkan!")
         else:
             st.error("⚠️ Data tidak ditemukan di database!")
 
+    # Tampilkan tabel sementara
     if st.session_state.massal_list:
         st.markdown("### Daftar Lokasi yang Ditambahkan")
         df_result = pd.DataFrame(st.session_state.massal_list, columns=["PIT","LOKASI","SEAM","SPASI","BURDEN","PF"])
         st.dataframe(df_result)
 
+        # Tombol Generate Semua
         if st.button("🚀 Generate Semua"):
             st.success("✅ Hasil Gabungan")
 
             # Kelompokkan per PIT
-            from collections import defaultdict
-            pit_dict = defaultdict(list)
+            pit_dict = {}
             for row in st.session_state.massal_list:
                 pit, lokasi, seam, spasi, burden, pf = row
-                # Gabungkan LOKASI + SEAM sebagai nama lokasi
-                full_name = f"{seam}"  # bisa juga f"{lokasi} - {seam}" jika mau
+                full_name = f"{seam}"  # jika mau gabungkan LOKASI juga, bisa: f"{lokasi} - {seam}"
+                if pit not in pit_dict:
+                    pit_dict[pit] = []
                 pit_dict[pit].append((full_name, spasi, burden, pf))
 
             # Format teks copyable
@@ -74,6 +78,7 @@ elif menu == "PF Generator Massal":
                     text_output += f"- {full_name}\n- SPASI: {spasi}\n- BURDEN: {burden}\n- PF: {pf}\n\n"
 
             st.text_area("Copy hasil di bawah untuk WhatsApp", text_output.strip(), height=400)
+
 
 
 # ====================== PF GENERATOR MASSAL OPSIONAL =====================
@@ -166,6 +171,7 @@ else:
             <b>Kebutuhan Lubang untuk Fleet</b> : {kebutuhan_lubang_fleet:.2f} lubang
             </div>
             """, unsafe_allow_html=True)
+
 
 
 
