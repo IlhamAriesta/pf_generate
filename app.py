@@ -16,7 +16,7 @@ try:
     df.columns = df.columns.str.upper()
     for col in ["PIT", "LOKASI", "SEAM"]:
         if col in df.columns:
-            df[col] = df[col].astype(str).str.strip().str.upper()
+            df[col] = df[col].astype(str).str.strip().upper()
 except Exception as e:
     st.error(f"⚠️ Gagal membaca file database_pf.xlsx: {e}")
     st.stop()
@@ -24,11 +24,46 @@ except Exception as e:
 # ====================== MENU =============================
 menu = st.radio("Pilih Menu", ["PF Generator", "PF Generator Massal", "Perhitungan Hole"])
 
-# ====================== PF GENERATOR MASSAL OPSIONAL =====================
+# ====================== PF GENERATOR SINGLE =====================
+if menu == "PF Generator":
+    st.subheader("📝 PF GENERATOR SINGLE")
+
+    pit = st.selectbox("Pilih PIT", sorted(df["PIT"].unique()))
+    lokasi_options = sorted(df[df["PIT"] == pit]["LOKASI"].unique())
+    lokasi = st.selectbox("Pilih LOKASI", lokasi_options)
+    seam_options = sorted(df[(df["PIT"] == pit) & (df["LOKASI"] == lokasi)]["SEAM"].unique())
+    seam = st.selectbox("Pilih SEAM", seam_options)
+
+    jumlah_lubang = st.number_input("Jumlah Lubang", min_value=1, step=1)
+    kedalaman = st.number_input("Kedalaman (m)", min_value=1.0, step=0.1)
+
+    if st.button("🚀 AUTO GENERATE PF"):
+        row = df[(df["PIT"] == pit) & (df["LOKASI"] == lokasi) & (df["SEAM"] == seam)]
+        if row.empty:
+            st.error("⚠️ Data tidak ditemukan di database!")
+        else:
+            pf = float(row["PF"].iloc[0])
+            spasi = float(row["SPASI"].iloc[0])
+            burden = float(row["BURDEN"].iloc[0])
+            volume = spasi * burden * kedalaman * jumlah_lubang
+
+            st.markdown("---")
+            st.success("✅ Perhitungan Berhasil")
+            st.markdown(f"""
+            <div style="font-size:22px; line-height:1.6;">
+            <b>PIT</b> : {pit}<br>
+            <b>LOKASI</b> : {lokasi} {seam}<br><br>
+            <b>PF</b> : {pf}<br>
+            <b>SPASI</b> : {spasi}<br>
+            <b>BURDEN</b> : {burden}<br><br>
+            <b>VOLUME</b> : <span style="color:#E94560;">{volume:,.2f} m³</span>
+            </div>
+            """, unsafe_allow_html=True)
+
+# ====================== PF GENERATOR MASSAL =====================
 elif menu == "PF Generator Massal":
     st.subheader("📝 PF GENERATOR MASSAL (Tambahkan Lokasi Satu per Satu)")
 
-    # Inisialisasi session state untuk menyimpan lokasi sementara
     if "massal_list" not in st.session_state:
         st.session_state.massal_list = []
 
@@ -38,26 +73,22 @@ elif menu == "PF Generator Massal":
     seam_options = sorted(df[(df["PIT"] == pit) & (df["LOKASI"] == lokasi)]["SEAM"].unique())
     seam = st.selectbox("Pilih SEAM", seam_options)
 
-    # Tombol untuk menambahkan lokasi
     if st.button("➕ Tambahkan Lokasi"):
         row_db = df[(df["PIT"] == pit) & (df["LOKASI"] == lokasi) & (df["SEAM"] == seam)]
         if not row_db.empty:
             spasi = float(row_db["SPASI"].iloc[0])
             burden = float(row_db["BURDEN"].iloc[0])
             pf = float(row_db["PF"].iloc[0])
-            # Simpan PIT, LOKASI, SEAM, SPASI, BURDEN, PF
             st.session_state.massal_list.append([pit, lokasi, seam, spasi, burden, pf])
             st.success(f"✅ Lokasi {lokasi} - {seam} ditambahkan!")
         else:
             st.error("⚠️ Data tidak ditemukan di database!")
 
-    # Tampilkan tabel sementara
     if st.session_state.massal_list:
         st.markdown("### Daftar Lokasi yang Ditambahkan")
         df_result = pd.DataFrame(st.session_state.massal_list, columns=["PIT","LOKASI","SEAM","SPASI","BURDEN","PF"])
         st.dataframe(df_result)
 
-        # Tombol Generate Semua
         if st.button("🚀 Generate Semua"):
             st.success("✅ Hasil Gabungan")
 
@@ -65,7 +96,7 @@ elif menu == "PF Generator Massal":
             pit_dict = {}
             for row in st.session_state.massal_list:
                 pit, lokasi, seam, spasi, burden, pf = row
-                full_name = f"{seam}"  # jika mau gabungkan LOKASI juga, bisa: f"{lokasi} - {seam}"
+                full_name = f"{lokasi} - {seam}"  # tampilkan LOKASI + SEAM
                 if pit not in pit_dict:
                     pit_dict[pit] = []
                 pit_dict[pit].append((full_name, spasi, burden, pf))
@@ -78,59 +109,6 @@ elif menu == "PF Generator Massal":
                     text_output += f"- {full_name}\n- SPASI: {spasi}\n- BURDEN: {burden}\n- PF: {pf}\n\n"
 
             st.text_area("Copy hasil di bawah untuk WhatsApp", text_output.strip(), height=400)
-
-
-
-# ====================== PF GENERATOR MASSAL OPSIONAL =====================
-elif menu == "PF Generator Massal":
-    st.subheader("📝 PF GENERATOR MASSAL (Tambahkan Lokasi Satu per Satu)")
-
-    # Inisialisasi session state untuk menyimpan lokasi sementara
-    if "massal_list" not in st.session_state:
-        st.session_state.massal_list = []
-
-    pit = st.selectbox("Pilih PIT", sorted(df["PIT"].unique()))
-    lokasi_options = sorted(df[df["PIT"] == pit]["LOKASI"].unique())
-    lokasi = st.selectbox("Pilih LOKASI", lokasi_options)
-    seam_options = sorted(df[(df["PIT"] == pit) & (df["LOKASI"] == lokasi)]["SEAM"].unique())
-    seam = st.selectbox("Pilih SEAM", seam_options)
-
-    if st.button("➕ Tambahkan Lokasi"):
-        row_db = df[(df["PIT"] == pit) & (df["LOKASI"] == lokasi) & (df["SEAM"] == seam)]
-        if not row_db.empty:
-            spasi = float(row_db["SPASI"].iloc[0])
-            burden = float(row_db["BURDEN"].iloc[0])
-            pf = float(row_db["PF"].iloc[0])
-            st.session_state.massal_list.append([pit, lokasi, seam, spasi, burden, pf])
-            st.success(f"✅ Lokasi {lokasi} - {seam} ditambahkan!")
-        else:
-            st.error("⚠️ Data tidak ditemukan di database!")
-
-    if st.session_state.massal_list:
-        st.markdown("### Daftar Lokasi yang Ditambahkan")
-        df_result = pd.DataFrame(st.session_state.massal_list, columns=["PIT","LOKASI","SEAM","SPASI","BURDEN","PF"])
-        st.dataframe(df_result)
-
-        if st.button("🚀 Generate Semua"):
-            st.success("✅ Hasil Gabungan")
-
-            # Kelompokkan per PIT
-            from collections import defaultdict
-            pit_dict = defaultdict(list)
-            for row in st.session_state.massal_list:
-                pit, lokasi, seam, spasi, burden, pf = row
-                pit_dict[pit].append((seam, spasi, burden, pf))
-
-            # Format teks copyable
-            text_output = ""
-            for pit, entries in pit_dict.items():
-                text_output += f"*{pit}*\n"
-                for seam, spasi, burden, pf in entries:
-                    text_output += f"- {seam}\n- SPASI: {spasi}\n- BURDEN: {burden}\n- PF: {pf}\n\n"
-
-            st.text_area("Copy hasil di bawah untuk WhatsApp", text_output.strip(), height=400)
-
-
 
 # ====================== PERHITUNGAN HOLE =====================
 else:
@@ -171,7 +149,3 @@ else:
             <b>Kebutuhan Lubang untuk Fleet</b> : {kebutuhan_lubang_fleet:.2f} lubang
             </div>
             """, unsafe_allow_html=True)
-
-
-
-
