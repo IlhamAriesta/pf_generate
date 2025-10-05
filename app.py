@@ -24,9 +24,13 @@ except Exception as e:
 # ====================== MENU =============================
 menu = st.radio("Pilih Menu", ["PF Generator", "PF Generator Massal", "Perhitungan Hole"])
 
-# ====================== PF GENERATOR SINGLE =====================
-if menu == "PF Generator":
-    st.subheader("📝 INPUT PF GENERATOR")
+# ====================== PF GENERATOR MASSAL OPSIONAL =====================
+elif menu == "PF Generator Massal":
+    st.subheader("📝 PF GENERATOR MASSAL (Tambahkan Lokasi Satu per Satu)")
+
+    # Inisialisasi session state untuk menyimpan lokasi sementara
+    if "massal_list" not in st.session_state:
+        st.session_state.massal_list = []
 
     pit = st.selectbox("Pilih PIT", sorted(df["PIT"].unique()))
     lokasi_options = sorted(df[df["PIT"] == pit]["LOKASI"].unique())
@@ -34,31 +38,43 @@ if menu == "PF Generator":
     seam_options = sorted(df[(df["PIT"] == pit) & (df["LOKASI"] == lokasi)]["SEAM"].unique())
     seam = st.selectbox("Pilih SEAM", seam_options)
 
-    jumlah_lubang = st.number_input("Jumlah Lubang", min_value=1, step=1)
-    kedalaman = st.number_input("Kedalaman (m)", min_value=1.0, step=0.1)
-
-    if st.button("🚀 AUTO GENERATE PF"):
-        row = df[(df["PIT"] == pit) & (df["LOKASI"] == lokasi) & (df["SEAM"] == seam)]
-        if row.empty:
-            st.error("⚠️ Data tidak ditemukan di database!")
+    if st.button("➕ Tambahkan Lokasi"):
+        row_db = df[(df["PIT"] == pit) & (df["LOKASI"] == lokasi) & (df["SEAM"] == seam)]
+        if not row_db.empty:
+            spasi = float(row_db["SPASI"].iloc[0])
+            burden = float(row_db["BURDEN"].iloc[0])
+            pf = float(row_db["PF"].iloc[0])
+            st.session_state.massal_list.append([pit, lokasi, seam, spasi, burden, pf])
+            st.success(f"✅ Lokasi {lokasi} - {seam} ditambahkan!")
         else:
-            pf = float(row["PF"].iloc[0])
-            spasi = float(row["SPASI"].iloc[0])
-            burden = float(row["BURDEN"].iloc[0])
-            volume = spasi * burden * kedalaman * jumlah_lubang
+            st.error("⚠️ Data tidak ditemukan di database!")
 
-            st.markdown("---")
-            st.success("✅ Perhitungan Berhasil")
-            st.markdown(f"""
-            <div style="font-size:22px; line-height:1.6;">
-            <b>PIT</b> : {pit}<br>
-            <b>LOKASI</b> : {lokasi} {seam}<br><br>
-            <b>PF</b> : {pf}<br>
-            <b>SPASI</b> : {spasi}<br>
-            <b>BURDEN</b> : {burden}<br><br>
-            <b>VOLUME</b> : <span style="color:#E94560;">{volume:,.2f} m³</span>
-            </div>
-            """, unsafe_allow_html=True)
+    if st.session_state.massal_list:
+        st.markdown("### Daftar Lokasi yang Ditambahkan")
+        df_result = pd.DataFrame(st.session_state.massal_list, columns=["PIT","LOKASI","SEAM","SPASI","BURDEN","PF"])
+        st.dataframe(df_result)
+
+        if st.button("🚀 Generate Semua"):
+            st.success("✅ Hasil Gabungan")
+
+            # Kelompokkan per PIT
+            from collections import defaultdict
+            pit_dict = defaultdict(list)
+            for row in st.session_state.massal_list:
+                pit, lokasi, seam, spasi, burden, pf = row
+                # Gabungkan LOKASI + SEAM sebagai nama lokasi
+                full_name = f"{seam}"  # bisa juga f"{lokasi} - {seam}" jika mau
+                pit_dict[pit].append((full_name, spasi, burden, pf))
+
+            # Format teks copyable
+            text_output = ""
+            for pit, entries in pit_dict.items():
+                text_output += f"*{pit}*\n"
+                for full_name, spasi, burden, pf in entries:
+                    text_output += f"- {full_name}\n- SPASI: {spasi}\n- BURDEN: {burden}\n- PF: {pf}\n\n"
+
+            st.text_area("Copy hasil di bawah untuk WhatsApp", text_output.strip(), height=400)
+
 
 # ====================== PF GENERATOR MASSAL OPSIONAL =====================
 elif menu == "PF Generator Massal":
@@ -150,5 +166,6 @@ else:
             <b>Kebutuhan Lubang untuk Fleet</b> : {kebutuhan_lubang_fleet:.2f} lubang
             </div>
             """, unsafe_allow_html=True)
+
 
 
