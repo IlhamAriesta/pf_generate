@@ -60,59 +60,42 @@ if menu == "PF Generator":
             </div>
             """, unsafe_allow_html=True)
 
-# ====================== PF GENERATOR MASSAL (TEXT INPUT) =====================
+# ====================== PF GENERATOR MASSAL OPSIONAL =====================
 elif menu == "PF Generator Massal":
-    st.subheader("📝 PF GENERATOR MASSAL (TEXT INPUT)")
+    st.subheader("📝 PF GENERATOR MASSAL (Tambahkan Lokasi Satu per Satu)")
 
-    st.markdown("Masukkan PIT dan LOKASI/SEAM seperti contoh berikut:")
-    st.markdown("""
-    TEMPUDO 2  
-    1. Stripping  
-    2. Expose  
-    TEMPUDO 3  
-    1. Floor
-    """)
+    # Inisialisasi session state untuk menyimpan lokasi sementara
+    if "massal_list" not in st.session_state:
+        st.session_state.massal_list = []
 
-    text_input = st.text_area("Masukkan PIT dan LOKASI/SEAM", height=200)
+    pit = st.selectbox("Pilih PIT", sorted(df["PIT"].unique()))
+    lokasi_options = sorted(df[df["PIT"] == pit]["LOKASI"].unique())
+    lokasi = st.selectbox("Pilih LOKASI", lokasi_options)
+    seam_options = sorted(df[(df["PIT"] == pit) & (df["LOKASI"] == lokasi)]["SEAM"].unique())
+    seam = st.selectbox("Pilih SEAM", seam_options)
 
-    if st.button("🚀 GENERATE MASSAL"):
-        lines = text_input.splitlines()
-        current_pit = ""
-        selection_list = []
+    if st.button("➕ Tambahkan Lokasi"):
+        row_db = df[(df["PIT"] == pit) & (df["LOKASI"] == lokasi) & (df["SEAM"] == seam)]
+        if not row_db.empty:
+            pf = float(row_db["PF"].iloc[0])
+            spasi = float(row_db["SPASI"].iloc[0])
+            burden = float(row_db["BURDEN"].iloc[0])
+            st.session_state.massal_list.append([pit, lokasi, seam, spasi, burden, pf])
+            st.success(f"✅ Lokasi {lokasi} - {seam} ditambahkan!")
+        else:
+            st.error("⚠️ Data tidak ditemukan di database!")
 
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-            # Jika tidak diawali angka, anggap PIT
-            if not line[0].isdigit():
-                current_pit = line.upper()
-            else:
-                # Ambil nama lokasi/seam (hilangkan nomor depan)
-                parts = line.split(".", 1)
-                if len(parts) > 1:
-                    lokasi_seam = parts[1].strip().upper()
-                    selection_list.append((current_pit, lokasi_seam))
-
-        # Generate hasil
-        results = []
-        for pit, lokasi_seam in selection_list:
-            row_db = df[(df["PIT"] == pit) & (df["LOKASI"] == lokasi_seam)]
-            if not row_db.empty:
-                pf = float(row_db["PF"].iloc[0])
-                spasi = float(row_db["SPASI"].iloc[0])
-                burden = float(row_db["BURDEN"].iloc[0])
-                results.append([pit, lokasi_seam, spasi, burden, pf])
-            else:
-                results.append([pit, lokasi_seam, "-", "-", "-"])
-
-        df_result = pd.DataFrame(results, columns=["PIT","LOKASI","BURDEN","SPASI","PF"])
-        st.success("✅ Perhitungan Massal Berhasil!")
+    if st.session_state.massal_list:
+        st.markdown("### Daftar Lokasi yang Ditambahkan")
+        df_result = pd.DataFrame(st.session_state.massal_list, columns=["PIT","LOKASI","SEAM","SPASI","BURDEN","PF"])
         st.dataframe(df_result)
 
-        # Copy/Share
-        csv_text = df_result.to_csv(index=False)
-        st.text_area("Copy hasil di bawah untuk WhatsApp", csv_text, height=300)
+        if st.button("🚀 Generate Semua"):
+            st.success("✅ Hasil Gabungan")
+            st.dataframe(df_result)
+            csv_text = df_result.to_csv(index=False)
+            st.text_area("Copy hasil di bawah untuk WhatsApp", csv_text, height=300)
+
 
 # ====================== PERHITUNGAN HOLE =====================
 else:
@@ -153,3 +136,4 @@ else:
             <b>Kebutuhan Lubang untuk Fleet</b> : {kebutuhan_lubang_fleet:.2f} lubang
             </div>
             """, unsafe_allow_html=True)
+
