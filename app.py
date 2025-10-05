@@ -14,12 +14,15 @@ st.markdown("---")
 try:
     df = pd.read_excel("database_pf.xlsx", sheet_name="database_pf")
     df.columns = df.columns.str.upper()
+
+    # Normalisasi kolom PIT, LOKASI, SEAM
     for col in ["PIT", "LOKASI", "SEAM"]:
         if col in df.columns:
-            df[col] = df[col].astype(str).str.strip().upper()
+            df[col] = df[col].astype(str).str.strip().str.upper()  # pastikan selalu string
 except Exception as e:
     st.error(f"⚠️ Gagal membaca file database_pf.xlsx: {e}")
     st.stop()
+
 
 # ====================== MENU =============================
 menu = st.radio("Pilih Menu", ["PF Generator", "PF Generator Massal", "Perhitungan Hole"])
@@ -149,3 +152,4 @@ else:
             <b>Kebutuhan Lubang untuk Fleet</b> : {kebutuhan_lubang_fleet:.2f} lubang
             </div>
             """, unsafe_allow_html=True)
+
