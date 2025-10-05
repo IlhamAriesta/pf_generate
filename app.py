@@ -77,9 +77,9 @@ elif menu == "PF Generator Massal":
     if st.button("➕ Tambahkan Lokasi"):
         row_db = df[(df["PIT"] == pit) & (df["LOKASI"] == lokasi) & (df["SEAM"] == seam)]
         if not row_db.empty:
-            pf = float(row_db["PF"].iloc[0])
             spasi = float(row_db["SPASI"].iloc[0])
             burden = float(row_db["BURDEN"].iloc[0])
+            pf = float(row_db["PF"].iloc[0])
             st.session_state.massal_list.append([pit, lokasi, seam, spasi, burden, pf])
             st.success(f"✅ Lokasi {lokasi} - {seam} ditambahkan!")
         else:
@@ -92,9 +92,23 @@ elif menu == "PF Generator Massal":
 
         if st.button("🚀 Generate Semua"):
             st.success("✅ Hasil Gabungan")
-            st.dataframe(df_result)
-            csv_text = df_result.to_csv(index=False)
-            st.text_area("Copy hasil di bawah untuk WhatsApp", csv_text, height=300)
+
+            # Kelompokkan per PIT
+            from collections import defaultdict
+            pit_dict = defaultdict(list)
+            for row in st.session_state.massal_list:
+                pit, lokasi, seam, spasi, burden, pf = row
+                pit_dict[pit].append((seam, spasi, burden, pf))
+
+            # Format teks copyable
+            text_output = ""
+            for pit, entries in pit_dict.items():
+                text_output += f"*{pit}*\n"
+                for seam, spasi, burden, pf in entries:
+                    text_output += f"- {seam}\n- SPASI: {spasi}\n- BURDEN: {burden}\n- PF: {pf}\n\n"
+
+            st.text_area("Copy hasil di bawah untuk WhatsApp", text_output.strip(), height=400)
+
 
 
 # ====================== PERHITUNGAN HOLE =====================
@@ -136,4 +150,5 @@ else:
             <b>Kebutuhan Lubang untuk Fleet</b> : {kebutuhan_lubang_fleet:.2f} lubang
             </div>
             """, unsafe_allow_html=True)
+
 
