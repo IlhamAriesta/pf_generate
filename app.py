@@ -22,7 +22,7 @@ except Exception as e:
     st.stop()
 
 # ====================== MENU =============================
-menu = st.radio("Pilih Menu", ["PF Generator", "Perhitungan Hole"])
+menu = st.radio("Pilih Menu", ["PF Generator", "PF Generator Massal", "Perhitungan Hole"])
 
 # ====================== PF GENERATOR =====================
 if menu == "PF Generator":
@@ -60,6 +60,43 @@ if menu == "PF Generator":
             </div>
             """, unsafe_allow_html=True)
 
+# ====================== PF GENERATOR MASSAL =====================
+elif menu == "PF Generator Massal":
+    st.subheader("📝 INPUT MASSAL PF GENERATOR")
+
+    # Upload file Excel berisi PIT, LOKASI, SEAM, JUMLAH_LUBANG, KEDALAMAN
+    uploaded_file = st.file_uploader("Upload Excel Lokasi", type=["xlsx"])
+    
+    if uploaded_file:
+        df_input = pd.read_excel(uploaded_file)
+        df_input.columns = df_input.columns.str.upper()
+        
+        results = []
+        for idx, row_input in df_input.iterrows():
+            pit = str(row_input["PIT"]).strip().upper()
+            lokasi = str(row_input["LOKASI"]).strip().upper()
+            seam = str(row_input["SEAM"]).strip().upper()
+            jumlah_lubang = float(row_input["JUMLAH_LUBANG"])
+            kedalaman = float(row_input["KEDALAMAN"])
+
+            row_db = df[(df["PIT"] == pit) & (df["LOKASI"] == lokasi) & (df["SEAM"] == seam)]
+            if not row_db.empty:
+                pf = float(row_db["PF"].iloc[0])
+                spasi = float(row_db["SPASI"].iloc[0])
+                burden = float(row_db["BURDEN"].iloc[0])
+                volume = spasi * burden * kedalaman * jumlah_lubang
+                results.append([pit, lokasi, seam, jumlah_lubang, kedalaman, pf, spasi, burden, volume])
+            else:
+                results.append([pit, lokasi, seam, jumlah_lubang, kedalaman, "-", "-", "-", "-"])
+
+        df_result = pd.DataFrame(results, columns=["PIT","LOKASI","SEAM","JUMLAH_LUBANG","KEDALAMAN","PF","SPASI","BURDEN","VOLUME"])
+        st.success("✅ Perhitungan Massal Berhasil!")
+        st.dataframe(df_result)
+
+        # Copy/Share
+        csv_text = df_result.to_csv(index=False)
+        st.text_area("Copy hasil di bawah untuk WhatsApp", csv_text, height=300)
+
 # ====================== PERHITUNGAN HOLE =====================
 else:
     st.subheader("📝 INPUT PERHITUNGAN HOLE")
@@ -68,11 +105,9 @@ else:
     panjang = st.number_input("Panjang Lokasi (m)", min_value=1.0, step=1.0)
     lebar = st.number_input("Lebar Lokasi (m)", min_value=1.0, step=1.0)
     fleet_unit = st.selectbox("Plan Fleet Loading", ["PC1250", "PC2000", "PC2600"])
-
     kedalaman = st.number_input("Kedalaman Rata-rata (m)", min_value=1.0, step=0.1)
 
     if st.button("🚀 HITUNG HOLE"):
-        # Ambil rata-rata PF, SPASI, BURDEN dari pit
         row = df[df["PIT"] == pit]
         if row.empty:
             st.error("⚠️ Data Pit tidak ditemukan!")
@@ -80,11 +115,9 @@ else:
             spasi = float(row["SPASI"].mean())
             burden = float(row["BURDEN"].mean())
 
-            # Perhitungan jumlah row dan lubang
             jumlah_row = lebar / burden
             jumlah_lubang = (lebar * panjang) / (spasi * burden)
 
-            # Kebutuhan volume per fleet
             fleet_vol = {"PC1250": 23940, "PC2000": 36540, "PC2600": 56700}
             kebutuhan_lubang_fleet = fleet_vol[fleet_unit] / (spasi * burden * kedalaman)
 
