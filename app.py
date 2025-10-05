@@ -24,7 +24,7 @@ except Exception as e:
 # ====================== MENU =============================
 menu = st.radio("Pilih Menu", ["PF Generator", "PF Generator Massal", "Perhitungan Hole"])
 
-# ====================== PF GENERATOR =====================
+# ====================== PF GENERATOR SINGLE =====================
 if menu == "PF Generator":
     st.subheader("📝 INPUT PF GENERATOR")
 
@@ -60,16 +60,17 @@ if menu == "PF Generator":
             </div>
             """, unsafe_allow_html=True)
 
+# ====================== PF GENERATOR MASSAL (TEXT INPUT) =====================
 elif menu == "PF Generator Massal":
     st.subheader("📝 PF GENERATOR MASSAL (TEXT INPUT)")
 
     st.markdown("Masukkan PIT dan LOKASI/SEAM seperti contoh berikut:")
     st.markdown("""
     TEMPUDO 2  
-    1. Stripping 35  
-    2. Expose 34  
+    1. Stripping  
+    2. Expose  
     TEMPUDO 3  
-    1. Floor 31
+    1. Floor
     """)
 
     text_input = st.text_area("Masukkan PIT dan LOKASI/SEAM", height=200)
@@ -96,7 +97,6 @@ elif menu == "PF Generator Massal":
         # Generate hasil
         results = []
         for pit, lokasi_seam in selection_list:
-            # Ambil dari database
             row_db = df[(df["PIT"] == pit) & (df["LOKASI"] == lokasi_seam)]
             if not row_db.empty:
                 pf = float(row_db["PF"].iloc[0])
@@ -113,8 +113,6 @@ elif menu == "PF Generator Massal":
         # Copy/Share
         csv_text = df_result.to_csv(index=False)
         st.text_area("Copy hasil di bawah untuk WhatsApp", csv_text, height=300)
-
-
 
 # ====================== PERHITUNGAN HOLE =====================
 else:
@@ -155,6 +153,3 @@ else:
             <b>Kebutuhan Lubang untuk Fleet</b> : {kebutuhan_lubang_fleet:.2f} lubang
             </div>
             """, unsafe_allow_html=True)
-
-
-
