@@ -62,40 +62,45 @@ if menu == "PF Generator":
 
 # ====================== PF GENERATOR MASSAL =====================
 elif menu == "PF Generator Massal":
-    st.subheader("📝 INPUT MASSAL PF GENERATOR")
+    st.subheader("📝 PF GENERATOR MASSAL (MULTI LOKASI)")
 
-    # Upload file Excel berisi PIT, LOKASI, SEAM, JUMLAH_LUBANG, KEDALAMAN
-    uploaded_file = st.file_uploader("Upload Excel Lokasi", type=["xlsx"])
+    # Multiselect PIT
+    pit_selected = st.multiselect("Pilih PIT", sorted(df["PIT"].unique()))
     
-    if uploaded_file:
-        df_input = pd.read_excel(uploaded_file)
-        df_input.columns = df_input.columns.str.upper()
-        
+    # Untuk setiap PIT, pilih beberapa LOKASI
+    lokasi_selected = []
+    for pit in pit_selected:
+        lokasi_options = sorted(df[df["PIT"] == pit]["LOKASI"].unique())
+        selected = st.multiselect(f"Pilih LOKASI untuk {pit}", lokasi_options)
+        lokasi_selected.extend([(pit, loc) for loc in selected])
+
+    jumlah_lubang = st.number_input("Jumlah Lubang per Lokasi", min_value=1, step=1)
+
+    if st.button("🚀 GENERATE MASSAL"):
         results = []
-        for idx, row_input in df_input.iterrows():
-            pit = str(row_input["PIT"]).strip().upper()
-            lokasi = str(row_input["LOKASI"]).strip().upper()
-            seam = str(row_input["SEAM"]).strip().upper()
-            jumlah_lubang = float(row_input["JUMLAH_LUBANG"])
-            kedalaman = float(row_input["KEDALAMAN"])
+        for pit, lokasi in lokasi_selected:
+            # Ambil semua SEAM untuk pit & lokasi
+            seams = df[(df["PIT"] == pit) & (df["LOKASI"] == lokasi)]["SEAM"].unique()
+            for seam in seams:
+                row_db = df[(df["PIT"] == pit) & (df["LOKASI"] == lokasi) & (df["SEAM"] == seam)]
+                if not row_db.empty:
+                    pf = float(row_db["PF"].iloc[0])
+                    spasi = float(row_db["SPASI"].iloc[0])
+                    burden = float(row_db["BURDEN"].iloc[0])
+                    # Volume = spasi * burden * jumlah_lubang (tanpa kedalaman)
+                    volume = spasi * burden * jumlah_lubang
+                    results.append([pit, lokasi, seam, jumlah_lubang, pf, spasi, burden, volume])
+                else:
+                    results.append([pit, lokasi, seam, jumlah_lubang, "-", "-", "-", "-"])
 
-            row_db = df[(df["PIT"] == pit) & (df["LOKASI"] == lokasi) & (df["SEAM"] == seam)]
-            if not row_db.empty:
-                pf = float(row_db["PF"].iloc[0])
-                spasi = float(row_db["SPASI"].iloc[0])
-                burden = float(row_db["BURDEN"].iloc[0])
-                volume = spasi * burden * kedalaman * jumlah_lubang
-                results.append([pit, lokasi, seam, jumlah_lubang, kedalaman, pf, spasi, burden, volume])
-            else:
-                results.append([pit, lokasi, seam, jumlah_lubang, kedalaman, "-", "-", "-", "-"])
-
-        df_result = pd.DataFrame(results, columns=["PIT","LOKASI","SEAM","JUMLAH_LUBANG","KEDALAMAN","PF","SPASI","BURDEN","VOLUME"])
+        df_result = pd.DataFrame(results, columns=["PIT","LOKASI","SEAM","JUMLAH_LUBANG","PF","SPASI","BURDEN","VOLUME"])
         st.success("✅ Perhitungan Massal Berhasil!")
         st.dataframe(df_result)
 
         # Copy/Share
         csv_text = df_result.to_csv(index=False)
         st.text_area("Copy hasil di bawah untuk WhatsApp", csv_text, height=300)
+
 
 # ====================== PERHITUNGAN HOLE =====================
 else:
@@ -136,3 +141,4 @@ else:
             <b>Kebutuhan Lubang untuk Fleet</b> : {kebutuhan_lubang_fleet:.2f} lubang
             </div>
             """, unsafe_allow_html=True)
+
